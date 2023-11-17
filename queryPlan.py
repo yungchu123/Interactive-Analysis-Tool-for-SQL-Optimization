@@ -80,10 +80,11 @@ class QueryPlan:
         return node_count
 
     def save_graph_file(self):
-        graph_name = f"graph_{str(time.time())}.png"
-        filename = os.path.join(project_root, "static", graph_name)
+        #graph_name = f"graph_{str(time.time())}.png"
+        #filename = os.path.join(project_root, "static", graph_name)
         plot_formatter_position = get_tree_node_pos(self.graph, self.root)
         node_labels = {x: str(x) for x in self.graph.nodes}
+        fig, ax = plt.subplots()
         nx.draw(
             self.graph,
             plot_formatter_position,
@@ -94,10 +95,11 @@ class QueryPlan:
             node_color="skyblue",
             node_shape="s",
             alpha=1,
+            ax = ax,
         )
-        plt.savefig(filename)
-        plt.clf()
-        return graph_name
+        #plt.savefig(filename)
+        #plt.clf()
+        return fig
 
     def create_explanation(self, node: Node):
         if not node.has_children:
