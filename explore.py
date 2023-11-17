@@ -20,6 +20,11 @@ class Explore:
         )
         self.cursor = self.conn.cursor()
 
+        self.incomplete_conditions = {}
+        self.conditions = []
+        self.intermediate_table_queries = {}
+        self.ctid_queries = []
+
     # Explain a query
     def explain(self, query) -> QueryPlan:
         self.cursor.execute(f"EXPLAIN (ANALYSE, COSTS, BUFFERS, TIMING, FORMAT JSON) {query}")
@@ -32,8 +37,8 @@ class Explore:
         self.cursor.close()
         self.conn.close()
 
-    def extract_conditions(plan, level):
-      global incomplete_conditions
+    def extract_conditions(self,plan, level):
+      
       conditions = []
 
       # Recursively call the function to start from the root
@@ -42,7 +47,7 @@ class Explore:
               conditions.extend(exploration.extract_conditions(subplan, level+1))
 
       # Check for incomplete queries in children node
-      for condition in incomplete_conditions:
+      for condition in self.incomplete_conditions:
       
           if condition['Level'] == (level + 1) and "Checked" not in condition:
               # Marked that the query has been checked - to prevent other branches from checking a node that is not its child
@@ -56,7 +61,7 @@ class Explore:
                   conditions.append(complete_condition)
 
                   # Remove from incomplete_conditions
-                  incomplete_conditions.remove(condition)
+                  self.incomplete_conditions.remove(condition)
 
       # Check for Nodes with Sequential Scan
       if plan['Node Type'] in ['Seq Scan', 'CTE Scan']:
@@ -76,7 +81,7 @@ class Explore:
               # Some nodes are sequentially scan 
               incomplete_condition = {key: value for key, value in plan.items() if key in selected_keys}
               incomplete_condition["Level"] = level
-              incomplete_conditions.append(incomplete_condition)
+              self.incomplete_conditions.append(incomplete_condition)
 
       # Check for Nodes with Index Scan
       elif plan['Node Type'] in ['Index Scan', 'Index Only Scan', 'Bitmap Index Scan']:
@@ -240,15 +245,12 @@ class Explore:
       self.cursor.execute(f"EXPLAIN (FORMAT JSON) {sql_query}")
       qep_list = self.cursor.fetchone()[0]
 
-      global incomplete_conditions
-      global conditions
-      incomplete_conditions = []
-      conditions = exploration.extract_conditions(qep_list[0]["Plan"], 0)
+      
+      self.conditions = exploration.extract_conditions(qep_list[0]["Plan"], 0)
 
       # For each table, construct a query using ctid
-      global intermediate_table_queries
-      global ctid_queries
-      intermediate_table_queries, ctid_queries = exploration.construct_query(conditions)
+      
+      self.intermediate_table_queries, self.ctid_queries = exploration.construct_query(self.conditions)
 
     def get_table_details(self,query,table_name):
       
@@ -375,13 +377,13 @@ if __name__ == '__main__':
 
     exploration.prep_visualise(input_query)
     table_details = {}
-    for i in range(len(ctid_queries)):
-      table_name, height = exploration.get_table_details(ctid_queries[i],conditions[i]["Relation Name"])
-      alias = conditions[i]["Alias"]
+    for i in range(len(exploration.ctid_queries)):
+      table_name, height = exploration.get_table_details(exploration.ctid_queries[i],exploration.conditions[i]["Relation Name"])
+      alias = exploration.conditions[i]["Alias"]
       table_name_with_alias = f"{table_name} - {alias}"
       table_details[f"{table_name_with_alias}"] = height
 
-    exploration.visualise_block_all_tables(ctid_queries, conditions)
+    exploration.visualise_block_all_tables(exploration.ctid_queries, exploration.conditions)
     # For visualisation of only 1 table (Change the index accordingly)
     # visualise_block_grid(ctid_queries[1], conditions[1]["Relation Name"], conditions[1]["Alias"])
 
