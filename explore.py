@@ -54,7 +54,7 @@ if __name__ == '__main__':
       l_linestatus;
 """
     query_plan_instance = exploration.explain(input_query)
-    query_plan_instance.save_graph_file()
+    qep_tree = query_plan_instance.save_graph_file()
     exploration.close_connection()
     explanation = query_plan_instance.create_explanation(query_plan_instance.root)
     totalCost = query_plan_instance.calculate_total_cost()
