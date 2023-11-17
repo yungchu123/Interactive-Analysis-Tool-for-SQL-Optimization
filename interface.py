@@ -1,7 +1,7 @@
 import json
 import tkinter as tk
 from tkinter import ttk
-
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from explore import Explore
 
 import customtkinter
@@ -24,6 +24,7 @@ CONNECTION = None
 CONNECTION_NAME = None
 EXPLORATION = None
 QUERY = None
+QUERY_TREE = None
 
 class MainApplication(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -347,13 +348,18 @@ class QueryPage(ttk.Frame):
 class QueryResultPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-        self.create_widgets(parent, controller)
 
         ## Exploration
         query_plan_instance = EXPLORATION.explain(QUERY)
+        qep_tree = query_plan_instance.save_graph_file()
         explanation = query_plan_instance.create_explanation(query_plan_instance.root)
         totalCost = query_plan_instance.calculate_total_cost()
         
+        global QUERY_TREE
+        QUERY_TREE = qep_tree
+
+        self.create_widgets(parent, controller)
+
         self.insert_formatted_text(explanation)
         self.total_cost_span.config(text=f"Total Cost: {totalCost}")
         print(explanation)
@@ -416,6 +422,12 @@ class QueryResultPage(ttk.Frame):
         # Total Cost Section
         self.total_cost_span = tk.Label(scrollable_frame, text="", font=("Arial", 20, "bold"), bg=MAIN_COLOR, fg="white")
         self.total_cost_span.pack(anchor="w", padx=50, pady=20)
+
+        # QEP
+        # Embed the plot in the Tkinter window
+        qep_canvas = FigureCanvasTkAgg(QUERY_TREE, master=scrollable_frame)
+        qep_canvas.draw()
+        qep_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=50, pady=20)
 
 
 

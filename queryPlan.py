@@ -13,16 +13,16 @@ from treeUtilities import get_tree_node_pos
 
 class Node:
     def __init__(self, query_plan):
-        self.rows_accessed = query_plan["Actual Rows"]
-        self.node_type = query_plan["Node Type"]
-        self.cost = query_plan["Total Cost"]
-        self.parent_relationship = query_plan.get("Parent Relationship")
-        self.relation = query_plan.get("Relation Name")
-        self.alias = query_plan.get("Alias")
-        self.startup_cost = query_plan.get("Startup Cost")
-        self.plan_rows = query_plan.get("Plan Rows")
-        self.plan_width = query_plan.get("Plan Width")
-        self.filter = query_plan.get("Filter")
+        self.rows_accessed = query_plan["Actual Rows"] if "Actual Rows" in query_plan else None
+        self.node_type = query_plan["Node Type"] if "Node Type" in query_plan else None
+        self.cost = query_plan["Total Cost"] if "Total Cost" in query_plan else None
+        self.parent_relationship = query_plan.get("Parent Relationship") if "Parent Relationship" in query_plan else None
+        self.relation = query_plan.get("Relation Name") if "Relation Name" in query_plan else None
+        self.alias = query_plan.get("Alias") if "Alias" in query_plan else None
+        self.startup_cost = query_plan.get("Startup Cost") if "Startup Cost" in query_plan else None
+        self.plan_rows = query_plan.get("Plan Rows") if "Plan Rows" in query_plan else None
+        self.plan_width = query_plan.get("Plan Width") if "Plan Width" in query_plan else None
+        self.filter = query_plan.get("Filter") if "Filter" in query_plan else None
         self.raw_json = query_plan
         self.explanation = self.create_explanation(query_plan)
 
