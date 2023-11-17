@@ -5,6 +5,9 @@ import psycopg2
 from queryPlan import QueryPlan
 import math
 import re
+from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Explore: 
     def __init__(self, host, port, database, user, password):
@@ -36,7 +39,7 @@ class Explore:
       # Recursively call the function to start from the root
       if 'Plans' in plan:
           for subplan in plan['Plans']:
-              conditions.extend(extract_conditions(subplan, level+1))
+              conditions.extend(exploration.extract_conditions(subplan, level+1))
 
       # Check for incomplete queries in children node
       for condition in incomplete_conditions:
@@ -240,12 +243,12 @@ class Explore:
       global incomplete_conditions
       global conditions
       incomplete_conditions = []
-      conditions = extract_conditions(qep_list[0]["Plan"], 0)
+      conditions = exploration.extract_conditions(qep_list[0]["Plan"], 0)
 
       # For each table, construct a query using ctid
       global intermediate_table_queries
       global ctid_queries
-      intermediate_table_queries, ctid_queries = construct_query(conditions)
+      intermediate_table_queries, ctid_queries = exploration.construct_query(conditions)
 
     def get_table_details(self,query,table_name):
       
@@ -266,7 +269,7 @@ class Explore:
           blocks_accessed.add(block_num)
 
       num_blocks_query = f"SELECT ctid FROM {table_name} ORDER BY ctid DESC LIMIT 1"
-      num_blocks = get_num_blocks(num_blocks_query)
+      num_blocks = exploration.get_num_blocks(num_blocks_query)
 
       max_width = 40
       height = math.ceil(num_blocks/max_width)
@@ -280,6 +283,65 @@ class Explore:
       num_blocks = tuple(map(int, num_blocks[0][0].strip('()').split(',')))
 
       return num_blocks[0] + 1
+    
+    def visualise_block_all_tables (ctid_queries, conditions):
+      # Execute the query and visualize ctid values
+      for i in range(len(ctid_queries)):
+          exploration.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"])
+
+    def visualise_block_grid(self, query, table_name, alias, limit = None):
+      
+      # Execute the SQL query
+      self.cursor.execute(query)
+
+      # Fetch all rows
+      rows = self.cursor.fetchall()
+
+      # Extract ctid values
+      ctids = [row[0] for row in rows]
+
+      # Visualize the ctid values
+      blocks_accessed = set()
+      for temp_tuple in ctids:
+          temp_tuple = tuple(map(int, temp_tuple.strip('()').split(',')))
+          block_num = temp_tuple[0]
+          blocks_accessed.add(block_num)
+
+      num_blocks_query = f"SELECT ctid FROM {table_name} ORDER BY ctid DESC LIMIT 1"
+      num_blocks = exploration.get_num_blocks(num_blocks_query)
+
+      max_width = 40
+      height = math.ceil(num_blocks/max_width)/20
+      gridmap = np.zeros((math.ceil(num_blocks/max_width), max_width), dtype=int)
+
+      for i in range(num_blocks):
+          row, col = divmod(i, max_width)
+          gridmap[row][col] = 1
+
+      for block in blocks_accessed:
+          row, col = divmod(block, max_width)
+          gridmap[row][col] = 2
+
+      
+      # Plot the gridmap
+      plt.figure(figsize=(18,3 * height))
+      custom_cmap = ListedColormap(['white', 'brown', 'green'])
+      plt.pcolor(gridmap[::-1],cmap=custom_cmap,edgecolors='k', linewidths=1)
+
+      # Customize plot
+      plt.title(f'Disk Memory Gridmap - Accessed Blocks in {table_name} ({alias})')
+      # Label x-axis intervals every 5th block
+      x_ticks = np.arange(0, max_width, 5) + 0.5
+      x_labels = np.arange(1, max_width + 1)[::5]
+      plt.xticks(x_ticks, x_labels)
+
+      # Label y-axis intervals every 5th row
+      y_ticks = np.arange(gridmap.shape[0] - 1, -1, -5) + 0.5
+      y_labels = np.arange(1, gridmap.shape[0] + 1, 5)
+      plt.yticks(y_ticks, y_labels)
+
+      plt.tick_params(axis='x', which='both', bottom=False, top=True, labelbottom=False, labeltop=True)
+      plt.show()
 
     
     
@@ -311,13 +373,17 @@ if __name__ == '__main__':
     query_plan_instance = exploration.explain(input_query)
     qep_tree = query_plan_instance.save_graph_file()
 
-    prep_visualise(input_query)
+    exploration.prep_visualise(input_query)
     table_details = {}
     for i in range(len(ctid_queries)):
-      table_name, height = get_table_details(ctid_queries[i],conditions[i]["Relation Name"])
+      table_name, height = exploration.get_table_details(ctid_queries[i],conditions[i]["Relation Name"])
       alias = conditions[i]["Alias"]
       table_name_with_alias = f"{table_name} - {alias}"
       table_details[f"{table_name_with_alias}"] = height
+
+    exploration.visualise_block_all_tables(ctid_queries, conditions)
+    # For visualisation of only 1 table (Change the index accordingly)
+    # visualise_block_grid(ctid_queries[1], conditions[1]["Relation Name"], conditions[1]["Alias"])
 
     exploration.close_connection()
     explanation = query_plan_instance.create_explanation(query_plan_instance.root)
