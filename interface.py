@@ -2,7 +2,10 @@ import json
 import tkinter as tk
 from tkinter import ttk
 
+from explore import Explore
+
 import customtkinter
+import sqlvalidator
 
 import psycopg2
 from psycopg2 import extras
@@ -15,6 +18,12 @@ SEC_COLOR = "#373737"
 THIRD_COLOR = "#A4A4A4"
 FOURTH_COLOR = "#828282"
 FONT_COLOR = "#242424"
+
+# Global variable declaration
+CONNECTION = None
+CONNECTION_NAME = None
+EXPLORATION = None
+QUERY = None
 
 class MainApplication(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -170,18 +179,17 @@ class ConnectionPage(ttk.Frame):
         print(connection)
         # checking if the connection is valid
         try:
-            global CONNECTION
-            CONNECTION = psycopg2.connect(
-                database=connection["Database"],
-                user=connection["Username"],
-                password=connection["Password"],
-                host=connection["IP"],
-                port=connection["Port"]
-            )
+            global EXPLORATION
+            EXPLORATION = Explore(database=connection["Database"],
+                                  port=connection["Port"],
+                                  host=connection["IP"],
+                                  user=connection["Username"],
+                                  password=connection["Password"])
             # CONNECTION = PostgresDB(connection["IP"], connection["Port"], connection["Database"],
             #                         connection["Username"], connection["Password"])
             global CONNECTION_NAME
             CONNECTION_NAME = connection["IP"]
+            print("Connection Successful")
             c.show_frame(QueryPage)
         except:
             self.error_message.config(text="Invalid Connection")
@@ -211,6 +219,7 @@ class QueryPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.create_widgets(parent, controller)
+        self.load_query_history()
 
     def create_widgets(self, parent, controller):
         # create the left container (history panel)
@@ -254,8 +263,8 @@ class QueryPage(ttk.Frame):
         # Query Input Box
         self.query_textbox = customtkinter.CTkTextbox(self.right_inner_container,
                                               width=800, height=245,
-                                              fg_color="white",  # Background color of the textbox
-                                              text_color="black",  # Text (font) color
+                                              fg_color="white",  # White Background
+                                              text_color="black",  # Black Font color
                                               font=("Courier", 20, "normal"))
         self.query_textbox.pack(padx=10, pady=10)
 
@@ -276,63 +285,146 @@ class QueryPage(ttk.Frame):
                                                  font=("Arial", 28, "bold"),
                                                  hover_color=FOURTH_COLOR,
                                                  text_color="white",
-                                                 command=lambda: self.execute_query())  # invoking the validation function
+                                                 command=lambda: self.execute_query(controller))  # invoking the validation function
         execute_button.pack(side="right", anchor="s", pady=(0, 35))
 
-        # ttk.Label(self, text="Enter SQL Query").grid(row=0, column=0, padx=10, pady=10)
-        
-        # # Text widget is used here as ttk doesn't have a direct equivalent of CTkTextbox
-        # self.query_text = tk.Text(self, height=10, width=40)
-        # self.query_text.grid(row=1, column=0, padx=10, pady=10)
-        
-        # submit_button = ttk.Button(self, text="Execute Query", command=self.execute_query)
-        # submit_button.grid(row=2, column=0, padx=10, pady=10)
-
-    def execute_query(self):
+    def execute_query(self, controller):
         query = self.query_textbox.get("1.0", "end-1c")
-        print(query)
-        # Add logic to execute the query
+        
+        # Validate sql query
+        query_parse = sqlvalidator.parse(query)
+        if query_parse.is_valid():
+            global QUERY
+            QUERY = query
+            controller.show_frame(QueryResultPage)
+        else:
+            print("Invalid SQL Query")
+            tk.messagebox.showerror("Error", "Invalid SQL Query")
+            return
 
+        # Store query inputs to history
+        try: 
+            with open('data.json', 'r') as fil:
+                data = json.load(fil)
+                # Initialize 'Queries' for CONNECTION_NAME if not present
+                if CONNECTION_NAME not in data["Queries"]:
+                    data["Queries"][CONNECTION_NAME] = []
+                # Add query to history if it is not empty
+                if query.strip():  
+                    data["Queries"][CONNECTION_NAME].append(query)
+        except FileNotFoundError:
+            # Create file and structure if it does not exist
+            data = {"Connections": [], "Queries": {CONNECTION_NAME: [query]}}
+        
+        with open('data.json', 'w+') as fil:
+            json.dump(data, fil)      
+    
     def load_query_history(self):
         try:
             with open('data.json', 'r') as f:
-                d = json.load(f)
-                queries = d['Queries']
-                if queries != {}:
-                    current_queries = queries[CONNECTION_NAME]
-                    for i in range(len(current_queries)):
-                        self.history_listbox.insert("end", "   " + f"{current_queries[i][0]}")
-                        if i % 2 == 0:
-                            self.history_listbox.itemconfig(i, {'bg': THIRD_COLOR})
-                        else:
-                            self.history_listbox.itemconfig(i, {'bg': FOURTH_COLOR})
-        except:
-            print('Loading Query History Error')
+                data = json.load(f)
+                queries = data.get('Queries', {}).get(CONNECTION_NAME, [])
+                self.history_listbox.delete(0, tk.END)  # Clear existing items
+                for i, query in enumerate(queries):
+                    self.history_listbox.insert("end", "   " + f"{query}")
+                    if i % 2 == 0:
+                        self.history_listbox.itemconfig(i, {'bg': THIRD_COLOR})
+                    else:
+                        self.history_listbox.itemconfig(i, {'bg': FOURTH_COLOR})
+        except FileNotFoundError:
+            print('No query history available')
 
     def handle_click_history(self, event):
         selection = event.widget.curselection()
         if selection:
             index = selection[0]
-            name = event.widget.get(index)[3:]
-            x = None
-            # loading the data from the json file
-            with open('data.json', 'r') as _:
-                x = json.load(_)
-            for t in x["Queries"][CONNECTION_NAME]:
-                if t[0] == name:
-                    entries = self.get_entries()
-                    for a in range(3):
-                        # loading the name of the comparison and the two queries
-                        if a == 0:
-                            entries[a].delete(0, tk.END)
-                            entries[a].insert(0, t[a])
-                        else:
-                            entries[a].delete(1.0, tk.END)
-                            entries[a].insert(1.0, t[a])
-    
-    def get_entries(self):
-        return self.entry_widgets  # Return the stored entry widgets
+            query = event.widget.get(index)[3:]
+            print(query)
 
+            self.query_textbox.delete("1.0", "end")  # Delete current content
+            self.query_textbox.insert("1.0", query)  # Insert new content
+
+class QueryResultPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.create_widgets(parent, controller)
+
+        ## Exploration
+        query_plan_instance = EXPLORATION.explain(QUERY)
+        explanation = query_plan_instance.create_explanation(query_plan_instance.root)
+        totalCost = query_plan_instance.calculate_total_cost()
+        
+        self.insert_formatted_text(explanation)
+        self.total_cost_span.config(text=f"Total Cost: {totalCost}")
+        print(explanation)
+        print(totalCost)
+
+    def create_widgets(self, parent, controller):
+        # Main Frame
+        container = tk.Frame(self, width=1200, height=800, bg=MAIN_COLOR)
+        container.pack(side="left", fill="both", expand=True)
+        container.pack_propagate(0)
+
+        # Header and Button Container
+        header_container = tk.Frame(container, bg=MAIN_COLOR)
+        header_container.pack(fill="x", pady=20)
+
+        # Header
+        header = tk.Label(header_container, text="Query Result", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
+        header.pack()
+
+        # Return Button
+        database_back_button = customtkinter.CTkButton(master=header_container,
+                                                       fg_color=SEC_COLOR,
+                                                       text="Enter Another Queries",
+                                                       font=("Arial", 28, "bold"),
+                                                       hover_color=FOURTH_COLOR,
+                                                       text_color="white",
+                                                       command=lambda: controller.show_frame(QueryPage))
+        database_back_button.pack(side="right", padx=30)
+
+        # Content Frame
+        content_frame = tk.Frame(container, bg=MAIN_COLOR)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Canvas for Scrolling
+        canvas = tk.Canvas(content_frame, bg=MAIN_COLOR)
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Scrollbar for Canvas
+        scrollbar = ttk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+
+        # Configure Canvas Scrolling
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        # Frame inside Canvas (for actual content)
+        scrollable_frame = tk.Frame(canvas, bg=MAIN_COLOR)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        # Query Explanation Section ----------------
+        explanation_title = tk.Label(scrollable_frame, text="Query Explanation", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
+        explanation_title.pack(anchor="w", padx=50)
+
+        self.exploration_text = tk.Text(scrollable_frame, 
+                                        width=100, height=20,
+                                        bg="white", fg="black",
+                                        font=("Courier", 12, "normal"))
+        self.exploration_text.pack(fill="both", expand=True, padx=50, pady=20)
+
+        # Total Cost Section
+        self.total_cost_span = tk.Label(scrollable_frame, text="", font=("Arial", 20, "bold"), bg=MAIN_COLOR, fg="white")
+        self.total_cost_span.pack(anchor="w", padx=50, pady=20)
+
+
+
+    def insert_formatted_text(self, explanation):
+        self.exploration_text.configure(state="normal")  # Enable the textbox
+        for statement in explanation:
+            statement = statement.replace("<b>", "").replace("</b>", "")
+            self.exploration_text.insert("end", statement + "\n\n")
+        self.exploration_text.configure(state="disabled")  # Disable the textbox
 
 app = MainApplication()
 app.mainloop()
