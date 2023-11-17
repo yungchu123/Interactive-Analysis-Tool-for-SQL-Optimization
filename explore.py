@@ -315,7 +315,9 @@ if __name__ == '__main__':
     table_details = {}
     for i in range(len(ctid_queries)):
       table_name, height = get_table_details(ctid_queries[i],conditions[i]["Relation Name"])
-      table_details[f"{table_name}"] = height
+      alias = conditions[i]["Alias"]
+      table_name_with_alias = f"{table_name} - {alias}"
+      table_details[f"{table_name_with_alias}"] = height
 
     exploration.close_connection()
     explanation = query_plan_instance.create_explanation(query_plan_instance.root)
