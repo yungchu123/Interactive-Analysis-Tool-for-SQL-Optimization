@@ -13,7 +13,8 @@ from treeUtilities import get_tree_node_pos
 
 class Node:
     def __init__(self, query_plan):
-        
+
+        #attributes in QEP JSON
         self.rows_accessed = query_plan["Actual Rows"] if "Actual Rows" in query_plan else None
         self.node_type = query_plan["Node Type"] if "Node Type" in query_plan else None
         self.cost = query_plan["Total Cost"] if "Total Cost" in query_plan else None
@@ -82,10 +83,8 @@ class QueryPlan:
             if node.node_type == node_type:
                 node_count += 1
         return node_count
-
+    
     def save_graph_file(self):
-        #graph_name = f"graph_{str(time.time())}.png"
-        #filename = os.path.join(project_root, "static", graph_name)
         plot_formatter_position = get_tree_node_pos(self.graph, self.root)
         node_labels = {x: str(x) for x in self.graph.nodes}
         fig, ax = plt.subplots()
@@ -101,8 +100,6 @@ class QueryPlan:
             alpha=1,
             ax = ax,
         )
-        #plt.savefig(filename)
-        #plt.clf()
         return fig
 
     def create_explanation(self, node: Node):
