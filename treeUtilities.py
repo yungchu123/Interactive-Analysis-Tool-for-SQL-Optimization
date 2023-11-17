@@ -102,10 +102,3 @@ def get_tree_node_pos(
 
 
 
-# def clean_up_static_dir(ignore_list: List[str]):
-#     static_dir = os.path.join(project_root, "static")
-#     for filename in os.listdir(static_dir):
-#         if (
-#             filename.startswith("graph_") and filename not in ignore_list
-#         ):  # not to remove other images
-#             os.remove(os.path.join(static_dir, filename))
