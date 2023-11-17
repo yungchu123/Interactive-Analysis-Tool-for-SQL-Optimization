@@ -44,7 +44,7 @@ class Explore:
       # Recursively call the function to start from the root
       if 'Plans' in plan:
           for subplan in plan['Plans']:
-              conditions.extend(exploration.extract_conditions(subplan, level+1))
+              conditions.extend(self.extract_conditions(subplan, level+1))
 
       # Check for incomplete queries in children node
       for condition in self.incomplete_conditions:
@@ -246,11 +246,11 @@ class Explore:
       qep_list = self.cursor.fetchone()[0]
 
       
-      self.conditions = exploration.extract_conditions(qep_list[0]["Plan"], 0)
+      self.conditions = self.extract_conditions(qep_list[0]["Plan"], 0)
 
       # For each table, construct a query using ctid
       
-      self.intermediate_table_queries, self.ctid_queries = exploration.construct_query(self.conditions)
+      self.intermediate_table_queries, self.ctid_queries = self.construct_query(self.conditions)
 
     def get_table_details(self,query,table_name):
       
@@ -271,7 +271,7 @@ class Explore:
           blocks_accessed.add(block_num)
 
       num_blocks_query = f"SELECT ctid FROM {table_name} ORDER BY ctid DESC LIMIT 1"
-      num_blocks = exploration.get_num_blocks(num_blocks_query)
+      num_blocks = self.get_num_blocks(num_blocks_query)
 
       max_width = 40
       height = math.ceil(num_blocks/max_width)
@@ -286,10 +286,10 @@ class Explore:
 
       return num_blocks[0] + 1
     
-    def visualise_block_all_tables (ctid_queries, conditions):
+    def visualise_block_all_tables (self, ctid_queries, conditions):
       # Execute the query and visualize ctid values
       for i in range(len(ctid_queries)):
-          exploration.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"])
+          self.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"])
 
     def visualise_block_grid(self, query, table_name, alias, limit = None):
       
@@ -310,7 +310,7 @@ class Explore:
           blocks_accessed.add(block_num)
 
       num_blocks_query = f"SELECT ctid FROM {table_name} ORDER BY ctid DESC LIMIT 1"
-      num_blocks = exploration.get_num_blocks(num_blocks_query)
+      num_blocks = self.get_num_blocks(num_blocks_query)
 
       max_width = 40
       height = math.ceil(num_blocks/max_width)/20
