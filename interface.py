@@ -23,8 +23,8 @@ FONT_COLOR = "#242424"
 CONNECTION = None
 CONNECTION_NAME = None
 EXPLORATION = None
-QUERY = None
 QUERY_TREE = None
+QUERY_PLAN = None
 
 class MainApplication(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -263,7 +263,7 @@ class QueryPage(ttk.Frame):
 
         # Query Input Box
         self.query_textbox = customtkinter.CTkTextbox(self.right_inner_container,
-                                              width=800, height=245,
+                                              width=800, height=500,
                                               fg_color="white",  # White Background
                                               text_color="black",  # Black Font color
                                               font=("Courier", 20, "normal"))
@@ -295,9 +295,19 @@ class QueryPage(ttk.Frame):
         # Validate sql query
         query_parse = sqlvalidator.parse(query)
         if query_parse.is_valid():
-            global QUERY
-            QUERY = query
-            controller.show_frame(QueryResultPage)
+            try:
+                ## Exploration
+                global QUERY_PLAN
+                QUERY_PLAN = EXPLORATION.explain(query)
+                controller.show_frame(QueryResultPage)
+            except psycopg2.DatabaseError as e:
+                print(f"Database error: {e}")
+                tk.messagebox.showerror("Database error", e)
+                return
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                tk.messagebox.showerror("An error occurred", e)
+                return
         else:
             print("Invalid SQL Query")
             tk.messagebox.showerror("Error", "Invalid SQL Query")
@@ -349,11 +359,10 @@ class QueryResultPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
-        ## Exploration
-        query_plan_instance = EXPLORATION.explain(QUERY)
-        qep_tree = query_plan_instance.save_graph_file()
-        explanation = query_plan_instance.create_explanation(query_plan_instance.root)
-        totalCost = query_plan_instance.calculate_total_cost()
+        
+        qep_tree = QUERY_PLAN.save_graph_file()
+        explanation = QUERY_PLAN.create_explanation(QUERY_PLAN.root)
+        totalCost = QUERY_PLAN.calculate_total_cost()
         
         global QUERY_TREE
         QUERY_TREE = qep_tree
@@ -362,8 +371,6 @@ class QueryResultPage(ttk.Frame):
 
         self.insert_formatted_text(explanation)
         self.total_cost_span.config(text=f"Total Cost: {totalCost}")
-        print(explanation)
-        print(totalCost)
 
     def create_widgets(self, parent, controller):
         # Main Frame
@@ -376,13 +383,13 @@ class QueryResultPage(ttk.Frame):
         header_container.pack(fill="x", pady=20)
 
         # Header
-        header = tk.Label(header_container, text="Query Result", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
+        header = tk.Label(header_container, text="Query Visualisation", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
         header.pack()
 
         # Return Button
         database_back_button = customtkinter.CTkButton(master=header_container,
                                                        fg_color=SEC_COLOR,
-                                                       text="Enter Another Queries",
+                                                       text="Enter Another Query",
                                                        font=("Arial", 28, "bold"),
                                                        hover_color=FOURTH_COLOR,
                                                        text_color="white",
@@ -410,8 +417,8 @@ class QueryResultPage(ttk.Frame):
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
         # Query Explanation Section ----------------
-        explanation_title = tk.Label(scrollable_frame, text="Query Explanation", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
-        explanation_title.pack(anchor="w", padx=50)
+        explanation_title = tk.Label(scrollable_frame, text="Query Explanation", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
+        explanation_title.pack(anchor="w", padx=50, pady=10)
 
         self.exploration_text = tk.Text(scrollable_frame, 
                                         width=100, height=20,
@@ -419,23 +426,27 @@ class QueryResultPage(ttk.Frame):
                                         font=("Courier", 12, "normal"))
         self.exploration_text.pack(fill="both", expand=True, padx=50, pady=20)
 
-        # Total Cost Section
-        self.total_cost_span = tk.Label(scrollable_frame, text="", font=("Arial", 20, "bold"), bg=MAIN_COLOR, fg="white")
-        self.total_cost_span.pack(anchor="w", padx=50, pady=20)
-
         # QEP
         # Embed the plot in the Tkinter window
+        qep_title = tk.Label(scrollable_frame, text="Query Execution Plan", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
+        qep_title.pack(anchor="w", padx=50, pady=20)
+
         qep_canvas = FigureCanvasTkAgg(QUERY_TREE, master=scrollable_frame)
         qep_canvas.draw()
         qep_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=50, pady=20)
 
-
+        # Total Cost Section
+        self.total_cost_span = tk.Label(scrollable_frame, text="", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
+        self.total_cost_span.pack(anchor="w", padx=50, pady=20)
 
     def insert_formatted_text(self, explanation):
         self.exploration_text.configure(state="normal")  # Enable the textbox
+        index = 1
         for statement in explanation:
             statement = statement.replace("<b>", "").replace("</b>", "")
+            statement = f"Step {index}: {statement}"
             self.exploration_text.insert("end", statement + "\n\n")
+            index += 1
         self.exploration_text.configure(state="disabled")  # Disable the textbox
 
 app = MainApplication()

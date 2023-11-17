@@ -13,6 +13,7 @@ from treeUtilities import get_tree_node_pos
 
 class Node:
     def __init__(self, query_plan):
+        
         self.rows_accessed = query_plan["Actual Rows"] if "Actual Rows" in query_plan else None
         self.node_type = query_plan["Node Type"] if "Node Type" in query_plan else None
         self.cost = query_plan["Total Cost"] if "Total Cost" in query_plan else None

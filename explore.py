@@ -17,7 +17,7 @@ class Explore:
 
     # Explain a query
     def explain(self, query) -> QueryPlan:
-        self.cursor.execute(f"EXPLAIN (FORMAT JSON) {query}")
+        self.cursor.execute(f"EXPLAIN (ANALYSE, COSTS, BUFFERS, TIMING, FORMAT JSON) {query}")
         plan = self.cursor.fetchall()
         query_plan_dict: dict = plan[0][0][0]["Plan"]
         return QueryPlan(query_plan_dict, query)
