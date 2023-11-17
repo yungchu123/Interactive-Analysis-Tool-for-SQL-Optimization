@@ -288,8 +288,10 @@ class Explore:
     
     def visualise_block_all_tables (self, ctid_queries, conditions):
       # Execute the query and visualize ctid values
+      fig_list = []
       for i in range(len(ctid_queries)):
-          self.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"])
+          fig_list.append(self.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"]))
+      return fig_list
 
     def visualise_block_grid(self, query, table_name, alias, limit = None):
       
@@ -326,24 +328,27 @@ class Explore:
 
       
       # Plot the gridmap
-      plt.figure(figsize=(18,3 * height))
+      fig, ax = plt.subplots(figsize=(18, 3 * height))
       custom_cmap = ListedColormap(['white', 'brown', 'green'])
-      plt.pcolor(gridmap[::-1],cmap=custom_cmap,edgecolors='k', linewidths=1)
+      im = ax.pcolor(gridmap[::-1],cmap=custom_cmap,edgecolors='k', linewidths=1)
 
       # Customize plot
-      plt.title(f'Disk Memory Gridmap - Accessed Blocks in {table_name} ({alias})')
+      ax.set_title(f'Disk Memory Gridmap - Accessed Blocks in {table_name} ({alias})')
       # Label x-axis intervals every 5th block
       x_ticks = np.arange(0, max_width, 5) + 0.5
       x_labels = np.arange(1, max_width + 1)[::5]
-      plt.xticks(x_ticks, x_labels)
+      ax.set_xticks(x_ticks)
+      ax.set_xticklabels(x_labels)
 
       # Label y-axis intervals every 5th row
       y_ticks = np.arange(gridmap.shape[0] - 1, -1, -5) + 0.5
       y_labels = np.arange(1, gridmap.shape[0] + 1, 5)
-      plt.yticks(y_ticks, y_labels)
+      ax.set_yticks(y_ticks)
+      ax.set_yticklabels(y_labels)
 
-      plt.tick_params(axis='x', which='both', bottom=False, top=True, labelbottom=False, labeltop=True)
-      plt.show()
+      ax.tick_params(axis='x', which='both', bottom=False, top=True, labelbottom=False, labeltop=True)
+      
+      return fig
 
     
     
@@ -383,9 +388,9 @@ if __name__ == '__main__':
       table_name_with_alias = f"{table_name} - {alias}"
       table_details[f"{table_name_with_alias}"] = height
 
-    exploration.visualise_block_all_tables(exploration.ctid_queries, exploration.conditions)
+    fig_list = exploration.visualise_block_all_tables(exploration.ctid_queries, exploration.conditions)
     # For visualisation of only 1 table (Change the index accordingly)
-    # visualise_block_grid(ctid_queries[1], conditions[1]["Relation Name"], conditions[1]["Alias"])
+    # fig = visualise_block_grid(ctid_queries[1], conditions[1]["Relation Name"], conditions[1]["Alias"])
 
     exploration.close_connection()
     explanation = query_plan_instance.create_explanation(query_plan_instance.root)
