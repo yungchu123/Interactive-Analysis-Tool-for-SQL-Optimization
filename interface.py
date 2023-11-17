@@ -382,7 +382,7 @@ class QueryResultPage(ttk.Frame):
         header_container.pack(fill="x", pady=20)
 
         # Header
-        header = tk.Label(header_container, text="Query Visualisation", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
+        header = tk.Label(header_container, text="QEP Visualisation", font=("Arial", 28, "bold"), bg=MAIN_COLOR, fg="white")
         header.pack()
 
         # Return Button
