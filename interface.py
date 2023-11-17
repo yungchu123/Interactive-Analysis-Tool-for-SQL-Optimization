@@ -448,32 +448,3 @@ class QueryResultPage(ttk.Frame):
             self.exploration_text.insert("end", statement + "\n\n")
             index += 1
         self.exploration_text.configure(state="disabled")  # Disable the textbox
-
-app = MainApplication()
-app.mainloop()
-
-### DEMO BELOW ###############
-# root = customtkinter.CTk()
-# root.geometry("500x350")
-
-# def login(a, b):
-#     print(a.get())
-#     print(b.get())
-
-# frame = customtkinter.CTkFrame(master=root)
-# frame.pack(pady=20, padx=60, fill="both", expand=True)
-
-# label = customtkinter.CTkLabel(master=frame, text="Login System")
-# label.pack(pady=12, padx=10)
-
-# entry1 = customtkinter.CTkEntry(master=frame, placeholder_text="Username")
-# entry1.pack(pady=12, padx=10)
-
-# entry2 = customtkinter.CTkEntry(master=frame, placeholder_text="Password")
-# entry2.pack(pady=12, padx=10)
-
-# button = customtkinter.CTkButton(master=frame, text="Login", command=lambda: login(entry1, entry2))
-# button.pack(pady=12, padx=10)
-
-# root.mainloop()
-
