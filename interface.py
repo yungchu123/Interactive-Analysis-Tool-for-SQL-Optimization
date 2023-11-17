@@ -300,6 +300,7 @@ class QueryPage(ttk.Frame):
                 global QUERY_PLAN
                 QUERY_PLAN = EXPLORATION.explain(query)
                 controller.show_frame(QueryResultPage)
+                print('Explored query successfully')
             except psycopg2.DatabaseError as e:
                 print(f"Database error: {e}")
                 tk.messagebox.showerror("Database error", e)
@@ -350,7 +351,6 @@ class QueryPage(ttk.Frame):
         if selection:
             index = selection[0]
             query = event.widget.get(index)[3:]
-            print(query)
 
             self.query_textbox.delete("1.0", "end")  # Delete current content
             self.query_textbox.insert("1.0", query)  # Insert new content
@@ -359,7 +359,6 @@ class QueryResultPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
-        
         qep_tree = QUERY_PLAN.save_graph_file()
         explanation = QUERY_PLAN.create_explanation(QUERY_PLAN.root)
         totalCost = QUERY_PLAN.calculate_total_cost()
@@ -415,6 +414,11 @@ class QueryResultPage(ttk.Frame):
         # Frame inside Canvas (for actual content)
         scrollable_frame = tk.Frame(canvas, bg=MAIN_COLOR)
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        # Scroll Behaviour
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)  # For Windows
 
         # Query Explanation Section ----------------
         explanation_title = tk.Label(scrollable_frame, text="Query Explanation", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
