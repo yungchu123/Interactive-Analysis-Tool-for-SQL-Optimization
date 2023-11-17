@@ -20,7 +20,7 @@ class Explore:
         )
         self.cursor = self.conn.cursor()
 
-        self.incomplete_conditions = {}
+        self.incomplete_conditions = []
         self.conditions = []
         self.intermediate_table_queries = {}
         self.ctid_queries = []
