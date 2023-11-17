@@ -13,6 +13,7 @@ from treeUtilities import get_tree_node_pos
 
 class Node:
     def __init__(self, query_plan):
+        self.rows_accessed = query_plan["Actual Rows"]
         self.node_type = query_plan["Node Type"]
         self.cost = query_plan["Total Cost"]
         self.parent_relationship = query_plan.get("Parent Relationship")
@@ -26,7 +27,9 @@ class Node:
         self.explanation = self.create_explanation(query_plan)
 
     def __str__(self):
-        name_string = f"{self.node_type}\ncost: {self.cost}"
+        #name_string = f"{self.node_type}\ncost: {self.cost}"
+        name_string = f"{self.node_type}\ncost: {self.cost}\nRows Accessed: {self.rows_accessed}"
+
         return name_string
 
     @staticmethod
