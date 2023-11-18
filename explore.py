@@ -106,7 +106,7 @@ class Explore:
 
       return conditions
     
-    def construct_query(conditions):
+    def construct_query(self, conditions):
       intermediate_table_queries = {}
       queries = []
       for condition in conditions:
@@ -288,10 +288,11 @@ class Explore:
     
     def visualise_block_all_tables (self, ctid_queries, conditions):
       # Execute the query and visualize ctid values
-      fig_list = []
-      for i in range(len(ctid_queries)):
-          fig_list.append(self.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"]))
-      return fig_list
+        fig_list = []
+        for i in range(len(ctid_queries)):
+            fig_list.append(self.visualise_block_grid(ctid_queries[i], conditions[i]["Relation Name"], conditions[i]["Alias"]))
+        print("Fig List: ", fig_list)
+        return fig_list
 
     def visualise_block_grid(self, query, table_name, alias, limit = None):
       
