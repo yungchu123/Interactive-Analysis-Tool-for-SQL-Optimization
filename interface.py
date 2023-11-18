@@ -307,6 +307,7 @@ class QueryPage(ttk.Frame):
                 QUERY_PLAN = EXPLORATION.explain(query)
                 EXPLORATION.prep_visualise(query)
                 global TABLE_DETAILS
+                TABLE_DETAILS.clear()
                 for i in range(len(EXPLORATION.ctid_queries)):
                     table_name, height = EXPLORATION.get_table_details(EXPLORATION.ctid_queries[i],EXPLORATION.conditions[i]["Relation Name"])
                     alias = EXPLORATION.conditions[i]["Alias"]
