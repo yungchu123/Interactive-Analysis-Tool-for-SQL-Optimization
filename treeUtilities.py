@@ -35,7 +35,7 @@ def get_tree_node_pos(
         if isinstance(G, nx.DiGraph):
             root = next(
                 iter(nx.topological_sort(G))
-            )  # allows back compatibility with nx version 1.11
+            )  # allows compatibility with nx version 1.11
         else:
             root = random.choice(list(G.nodes))
 
@@ -83,13 +83,15 @@ def get_tree_node_pos(
             children.remove(parent)
         if len(children) != 0:
             dx = max(min_dx, width / len(children))
+            #spacing out nodes on same level 
+            total_width = len(children) * dx
             nextx = xcenter - width / 2 - max(min_dx, dx / 2)
             for child in children:
                 nextx += dx
                 pos = _hierarchy_pos(
                     G,
                     child,
-                    width=dx,
+                    width = total_width, 
                     vert_gap=vert_gap,
                     vert_loc=vert_loc - vert_gap,
                     xcenter=nextx,
