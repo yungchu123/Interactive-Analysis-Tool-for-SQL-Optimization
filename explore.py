@@ -40,7 +40,7 @@ class Explore:
     def extract_conditions(self,plan, level):
       
       conditions = []
-
+      print(conditions)
       # Recursively call the function to start from the root
       if 'Plans' in plan:
           for subplan in plan['Plans']:
@@ -114,7 +114,7 @@ class Explore:
           table = condition["Relation Name"]
           
           if condition["Node Type"] in ["Seq Scan", "CTE Scan"]:
-              if "Filter" in condition:
+                if "Filter" in condition:
                   filter_condition = condition["Filter"]
                   query_for_intermediate = f"(SELECT * FROM {table} {current_alias} WHERE {filter_condition})"
                   query = f"SELECT ctid, * FROM {table} {current_alias} ORDER BY ctid"
@@ -122,7 +122,7 @@ class Explore:
                   queries.append(query) # Sequential Scan will access all blocks
                   intermediate_table_queries[f"{current_alias}"] = query_for_intermediate # Stored to create a query if and when this table is used for other scans
 
-              elif "Hash Cond" in condition:
+                elif "Hash Cond" in condition:
                   hash_condition = condition["Hash Cond"]
 
                   # Extracting table aliases                  
@@ -154,6 +154,15 @@ class Explore:
                   
                   queries.append(query)
                   intermediate_table_queries[f"{current_alias}"] = query_for_intermediate
+                else:
+                  query_for_intermediate = f"(SELECT * FROM {table} {current_alias})"
+                  query = f"SELECT ctid, * FROM {table} {current_alias} ORDER BY ctid"
+                  
+                  queries.append(query)
+                  intermediate_table_queries[f"{current_alias}"] = query_for_intermediate
+
+        
+                  
                   
           elif condition["Node Type"] in ["Index Scan", "Index Only Scan", "Bitmap Index Scan"]:
               
@@ -169,24 +178,24 @@ class Explore:
               table_alias = f"{current_alias}."
 
               # Find all matches in the condition
-              regex_exclusions = ["AND", "OR"]
+              regex_exclusions = ["AND", "OR","numeric","char", "date", "timestamp", "boolean","int","bigint"]
               regex_exclusions.extend(pattern.findall(index_condition))
               regex_exclusions.extend(pattern.findall(filter_condition))
 
               # Updated regular expression pattern
-              pattern = re.compile(r'(\w+\.?\w*)')
+              pattern = re.compile(r'(\w+\.?\w*|\'[^\']*\'|\'.*?\')')
 
               # Use regular expressions to add the table alias
               index_condition = pattern.sub(
                   lambda match: f"{table_alias}{match.group(1)}"
-                  if '.' not in match.group(1) and match.group(1) not in regex_exclusions and not match.group(1).isalpha()
+                  if '.' not in match.group(1) and match.group(1) not in regex_exclusions and not match.group(1).replace("'", "").isnumeric()
                   else match.group(1),
                   index_condition
               )
 
               filter_condition = pattern.sub(
                   lambda match: f"{table_alias}{match.group(1)}"
-                  if '.' not in match.group(1) and match.group(1) not in regex_exclusions and not match.group(1).isalpha()
+                  if '.' not in match.group(1) and match.group(1) not in regex_exclusions and not match.group(1).replace("'", "").isnumeric()
                   else match.group(1),
                   filter_condition
               )
@@ -248,8 +257,11 @@ class Explore:
       
       self.conditions = self.extract_conditions(qep_list[0]["Plan"], 0)
 
+      for incomplete_condition in self.incomplete_conditions:
+        if incomplete_condition["Node Type"] == "Seq Scan":
+            self.conditions.append(incomplete_condition)
+
       # For each table, construct a query using ctid
-      
       self.intermediate_table_queries, self.ctid_queries = self.construct_query(self.conditions)
 
     def get_table_details(self,query,table_name):
@@ -316,7 +328,7 @@ class Explore:
       num_blocks = self.get_num_blocks(num_blocks_query)
 
       max_width = 40
-      height = math.ceil(num_blocks/max_width)/20
+      height = math.ceil(num_blocks/max_width)/30
       gridmap = np.zeros((math.ceil(num_blocks/max_width), max_width), dtype=int)
 
       for i in range(num_blocks):
@@ -329,7 +341,7 @@ class Explore:
 
       
       # Plot the gridmap
-      fig, ax = plt.subplots(figsize=(18, 3 * height))
+      fig, ax = plt.subplots(figsize=(10, min(3 * height, 655)))
       custom_cmap = ListedColormap(['white', 'brown', 'green'])
       im = ax.pcolor(gridmap[::-1],cmap=custom_cmap,edgecolors='k', linewidths=1)
 

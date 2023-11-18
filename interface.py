@@ -25,6 +25,8 @@ CONNECTION_NAME = None
 EXPLORATION = None
 QUERY_TREE = None
 QUERY_PLAN = None
+ACCESS_BLK_LIST = None
+TABLE_DETAILS = {}
 
 class MainApplication(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -219,6 +221,8 @@ class ConnectionPage(ttk.Frame):
 class QueryPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
+        global TABLE_DETAILS
+        TABLE_DETAILS = {}
         self.create_widgets(parent, controller)
         self.load_query_history()
 
@@ -298,9 +302,23 @@ class QueryPage(ttk.Frame):
             try:
                 ## Exploration
                 global QUERY_PLAN
+                global ACCESS_BLK_LIST
+                print("Starting exploration...")
                 QUERY_PLAN = EXPLORATION.explain(query)
-                controller.show_frame(QueryResultPage)
+                EXPLORATION.prep_visualise(query)
+                global TABLE_DETAILS
+                for i in range(len(EXPLORATION.ctid_queries)):
+                    table_name, height = EXPLORATION.get_table_details(EXPLORATION.ctid_queries[i],EXPLORATION.conditions[i]["Relation Name"])
+                    alias = EXPLORATION.conditions[i]["Alias"]
+                    table_name_with_alias = f"{table_name} - {alias}"
+                    TABLE_DETAILS[f"{table_name_with_alias}"] = height
+                
+                print("Table Details: ", TABLE_DETAILS)
+
+                ACCESS_BLK_LIST = EXPLORATION.visualise_block_all_tables(EXPLORATION.ctid_queries, EXPLORATION.conditions)
+                print("Access Block List: ", ACCESS_BLK_LIST)
                 print('Explored query successfully')
+                controller.show_frame(QueryResultPage)
             except psycopg2.DatabaseError as e:
                 print(f"Database error: {e}")
                 tk.messagebox.showerror("Database error", e)
@@ -430,18 +448,65 @@ class QueryResultPage(ttk.Frame):
                                         font=("Courier", 12, "normal"))
         self.exploration_text.pack(fill="both", expand=True, padx=50, pady=20)
 
-        # QEP
+        # QEP ----------------
         # Embed the plot in the Tkinter window
         qep_title = tk.Label(scrollable_frame, text="Query Execution Plan", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
         qep_title.pack(anchor="w", padx=50, pady=20)
 
+        # print("QEP: ", QUERY_TREE)
         qep_canvas = FigureCanvasTkAgg(QUERY_TREE, master=scrollable_frame)
         qep_canvas.draw()
         qep_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=50, pady=20)
 
-        # Total Cost Section
+        # Total Cost Section ----------------
         self.total_cost_span = tk.Label(scrollable_frame, text="", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
         self.total_cost_span.pack(anchor="w", padx=50, pady=20)
+
+        # Temp
+        access_block_title = tk.Label(scrollable_frame, text="View Block Accessed", font=("Arial", 24, "bold"), bg=MAIN_COLOR, fg="white")
+        access_block_title.pack(anchor="w", padx=50, pady=20)
+
+        # Create the combobox
+        def change_figure(event):
+            if self.current_canvas_widget is not None:
+                self.current_canvas_widget.pack_forget()
+            selected_option = combo_box.get()
+            fig_index = list(TABLE_DETAILS.keys()).index(selected_option)
+            temp = FigureCanvasTkAgg(ACCESS_BLK_LIST[fig_index], master=access_block_inner_frame)
+            temp.draw()
+            self.current_canvas_widget = temp.get_tk_widget()
+            self.current_canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        options = list(TABLE_DETAILS.keys())
+        combo_box = ttk.Combobox(scrollable_frame, values=options, state="readonly")
+        combo_box.pack(padx=10, pady=10)
+        combo_box.bind("<<ComboboxSelected>>", change_figure)
+        
+        # Create a frame with a fixed height
+        access_block_frame = tk.Frame(scrollable_frame, height=400)
+        access_block_frame.pack_propagate(False) # prevent resize
+        access_block_frame.pack(fill=tk.BOTH, side=tk.TOP, padx=50, pady=20)
+
+        # Add the canvas to this frame
+        access_block_canvas = tk.Canvas(access_block_frame)
+        scrollbar = tk.Scrollbar(access_block_frame, command=access_block_canvas.yview)
+        access_block_canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        access_block_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Create an inner frame to add your widgets
+        access_block_inner_frame = tk.Frame(access_block_canvas)
+        access_block_canvas.create_window((0, 0), window=access_block_inner_frame, anchor='nw')
+
+        # Function to update the canvas's scrollregion
+        def configure_scrollregion(event):
+            access_block_canvas.configure(scrollregion=access_block_canvas.bbox("all"))
+
+        access_block_inner_frame.bind("<Configure>", configure_scrollregion)
+
+        # Add Content to Inner Frame
+        self.current_canvas_widget = None
 
     def insert_formatted_text(self, explanation):
         self.exploration_text.configure(state="normal")  # Enable the textbox
